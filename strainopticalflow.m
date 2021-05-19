@@ -2,27 +2,50 @@ clear
 close all
 
 load('allcircleuv.mat')
-%load('allrect100uv.mat')
+% load('allrect100uv.mat')
 
  
 %%
 clear estrain wrotation Vs Ds
-scale = 0.02;
-Ux= mean(allcircleu ,3) - mean(allcircleu(:));
-Uy= mean(allcirclev ,3) - mean(allcirclev(:));
+scale = 1;
+% Ux= mean(allcircleu ,3) -  mean(mean(mean(allcircleu(600:1000,600:1000,:))));
+% Uy= mean(allcirclev ,3) -  mean(mean(mean(allcirclev(600:1000,600:1000,:))));
+
+Ux= allcircleu(:,:,1) -  mean(mean(mean(allcircleu(600:1000,600:1000,1))));
+Uy= allcirclev(:,:,1) -  mean(mean(mean(allcirclev(600:1000,600:1000,1))));
+
 % Ux= mean(allrect100u ,3) - mean(allrect100u(:));
 % Uy= mean(allrect100v ,3) - mean(allrect100v(:));
 
-Ux = imresize( imgaussfilt(  Ux, 1/scale), scale,'bicubic');
-Uy = imresize( imgaussfilt(  Uy, 1/scale), scale,'bicubic');
+%Ux = imresize( imgaussfilt(  Ux, 1/scale), scale,'bicubic');
+%Uy = imresize( imgaussfilt(  Uy, 1/scale), scale,'bicubic');
+
+
 
 h = 1/scale;
 
+figure
+x = [1:h:size(allcircleu,1)] + round(h/2); %set up the grid for where the arrows go
+y = [1:h:size(allcircleu,2)] + round(h/2);
+% x = [1:h:size(allrect100u,1)] + round(h/2); %set up the grid for where the arrows go
+% y = [1:h:size(allrect100u,2)] + round(h/2);
+q =quiver(x,y,Ux,Uy,1); %draw arrows, arrows are exact length and not scaled by any factors if scale=0[var5]. otherwise they are scaled.
+q.Color = 'black';
+set(gca,'Ydir','reverse')
+axis equal
+axis off
+set(gca,'color','none')
 
 
 
-[Uxy,Uxx] = gradient(Ux,h,h);
-[Uyy,Uyx] = gradient(Uy,h,h);
+
+
+
+
+
+
+[Uxx,Uxy] = gradient(Ux,h,h);
+[Uyx,Uyy] = gradient(Uy,h,h);
 
 
 for i=1:size(Ux,1)
@@ -107,3 +130,44 @@ colorbar
 % 
 % figure 
 % quiver(Vs(3:end-2,3:end-2,1,2).*Ds(3:end-2,3:end-2,1,1)+ Vs(3:end-2,3:end-2,1,2).*Ds(3:end-2,3:end-2,2,2)   , Vs(3:end-2,3:end-2,2,2).*Ds(3:end-2,3:end-2,1,1)+ Vs(3:end-2,3:end-2,2,2).*Ds(3:end-2,3:end-2,2,2)  ,1)
+%%
+alignmentdistributions = [];
+for i=1:size(Vs,1)
+    for j=1:size(Vs,2)
+        alignmentdistribution = [0.1:0.1:360];
+        alignmentdistribution = atand(   (sind(alignmentdistribution)*(1+Ds(i,j,1,1)) )  ./   (cosd(alignmentdistribution)*(1+Ds(i,j,2,2)) ));
+        %alignmentdistribution = atand(   (sind(alignmentdistribution)*(1-0.1 ))  ./   (cosd(alignmentdistribution)*(1+0 ) ) );
+        alignmentdistribution = alignmentdistribution - atand(Vs(i,j,2,1)/Vs(i,j,1,1));
+        alignmentdistribution(alignmentdistribution<-90) = alignmentdistribution(alignmentdistribution<-90) + 180;
+        alignmentdistribution(alignmentdistribution>90) = alignmentdistribution(alignmentdistribution>90) - 180;
+        alignmentdistributions(i,j,:) = alignmentdistribution;
+    end
+end
+
+%% first attempt at visualization
+
+figure
+histogram(alignmentdistributions(:))
+
+temp1 = alignmentdistributions(25:32,2:10,:);
+figure
+subplot(2,2,1)
+histogram(temp1(:) )
+temp1 = alignmentdistributions(12:17, 12:17,:);
+subplot(2,2,2)
+histogram(temp1(:) )
+temp1 = alignmentdistributions(2:8, 2:8,:);
+subplot(2,2,3)
+histogram(temp1(:) )
+temp1 = alignmentdistributions(20:25, 20:25,:);
+subplot(2,2,4)
+histogram(temp1(:) )
+
+
+temp1 = alignmentdistributions([3:9,25:31,],5:25,:);
+figure
+subplot(2,2,1)
+histogram(temp1(:) )
+temp1 = alignmentdistributions([11:21], 5:25,:);
+subplot(2,2,2)
+histogram( temp1(:))
