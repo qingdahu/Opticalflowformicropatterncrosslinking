@@ -8,11 +8,22 @@ load('allcircleuv.mat')
 %%
 clear estrain wrotation Vs Ds
 scale = 1;
+
+
+%test case
+% Ux = repmat(1:10, [10 1]);
+% Uy = ones(10);
+Ux = repmat(1:10, [10 1]);
+Uy = repmat(1:10, [10 1]);
+
 % Ux= mean(allcircleu ,3) -  mean(mean(mean(allcircleu(600:1000,600:1000,:))));
 % Uy= mean(allcirclev ,3) -  mean(mean(mean(allcirclev(600:1000,600:1000,:))));
 
-Ux= allcircleu(:,:,1) -  mean(mean(mean(allcircleu(600:1000,600:1000,1))));
-Uy= allcirclev(:,:,1) -  mean(mean(mean(allcirclev(600:1000,600:1000,1))));
+% Ux= allcircleu(:,:,1) -  mean(mean(mean(allcircleu(600:1000,600:1000,1))));
+% Uy= allcirclev(:,:,1) -  mean(mean(mean(allcirclev(600:1000,600:1000,1))));
+
+
+
 
 % Ux= mean(allrect100u ,3) - mean(allrect100u(:));
 % Uy= mean(allrect100v ,3) - mean(allrect100v(:));
@@ -47,14 +58,13 @@ set(gca,'color','none')
 [Uxx,Uxy] = gradient(Ux,h,h);
 [Uyx,Uyy] = gradient(Uy,h,h);
 
-
 for i=1:size(Ux,1)
     for j=1:size(Ux,2)
         Fdisplacementgradient =  [Uxx(i,j) Uxy(i,j); Uyx(i,j) Uyy(i,j)] ;
         [V,D] = eig((Fdisplacementgradient + Fdisplacementgradient')./2);
         estrain(i,j,:,:) = (Fdisplacementgradient + Fdisplacementgradient')./2 ;
         wrotation(i,j,:,:)  =(Fdisplacementgradient - Fdisplacementgradient')./2  ; 
-        Vs(i,j,:,:) = V;
+        Vs(i,j,:,:) = V; % I think its y and then x...
         Ds(i,j,:,:) = D;
     end
 end
@@ -113,6 +123,9 @@ quiver(Vs(:,:,1,2).*Ds(:,:,2,2),Vs(:,:,2,2).*Ds(:,:,2,2),1)
 hold off
 axis equal tight
 
+
+
+
 figure
 subplot(2,2,1)
 imagesc(Ds(:,:,1,1))
@@ -137,7 +150,7 @@ for i=1:size(Vs,1)
         alignmentdistribution = [0.1:0.1:360];
         alignmentdistribution = atand(   (sind(alignmentdistribution)*(1+Ds(i,j,1,1)) )  ./   (cosd(alignmentdistribution)*(1+Ds(i,j,2,2)) ));
         %alignmentdistribution = atand(   (sind(alignmentdistribution)*(1-0.1 ))  ./   (cosd(alignmentdistribution)*(1+0 ) ) );
-        alignmentdistribution = alignmentdistribution - atand(Vs(i,j,2,1)/Vs(i,j,1,1));
+        alignmentdistribution = alignmentdistribution + atand(Vs(i,j,1,1)/Vs(i,j,2,1));
         alignmentdistribution(alignmentdistribution<-90) = alignmentdistribution(alignmentdistribution<-90) + 180;
         alignmentdistribution(alignmentdistribution>90) = alignmentdistribution(alignmentdistribution>90) - 180;
         alignmentdistributions(i,j,:) = alignmentdistribution;
