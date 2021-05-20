@@ -1,74 +1,148 @@
 clear
 close all
 
-load('allcircleuv.mat')
-% load('allrect100uv.mat')
+% updated 2021/5/20 
+% Written by Qingda Hu
+% Based on the formulas from
+% https://www.files.ethz.ch/structuralgeology/sms/NumModRocDef/Strain_Tensors.pdf
+% and https://ocw.mit.edu/courses/mechanical-engineering/2-080j-structural-mechanics-fall-2013/course-notes/MIT2_080JF13_Lecture2.pdf
 
  
-%%
-clear estrain wrotation Vs Ds
-scale = 1;
+%% preprocessing of data
+% we want to load the the Ux and Uy (displacement, in units of pixels)
+% we also want to keep track of the dx (in units of pixels)
+
+%if you want to just load one: choose from all the .mat files that have
+%flowAll objects in them
+load('circle3.tif.mat')     %load .mat with flowAll object
+
+Ux = flowAll{2}.Vx;         % load Ux between first and second frame 
+Uy = flowAll{2}.Vy;         % load Uy between first and second frame 
+for n=3:21                  % loop to 21 if you want 500 scans, 81 if you want 2000 scans (where it exists)
+Ux = Ux+ flowAll{n}.Vx;     % collect all the Ux 
+Uy = Uy+ flowAll{n}.Vy;
+end
 
 
-%test case
-% Ux = repmat(1:10, [10 1]);
-% Uy = ones(10);
-Ux = repmat(1:10, [10 1]);
-Uy = repmat(1:10, [10 1]);
-
-% Ux= mean(allcircleu ,3) -  mean(mean(mean(allcircleu(600:1000,600:1000,:))));
-% Uy= mean(allcirclev ,3) -  mean(mean(mean(allcirclev(600:1000,600:1000,:))));
-
-% Ux= allcircleu(:,:,1) -  mean(mean(mean(allcircleu(600:1000,600:1000,1))));
-% Uy= allcirclev(:,:,1) -  mean(mean(mean(allcirclev(600:1000,600:1000,1))));
+% % we may want a more complicated processing process involving some
+% % complicated filtering to account for the poresize of the fiber network 
+% Ux = zeros(size(flowAll{2}.Vx));         
+% Uy = zeros(size(flowAll{2}.Vx));         
+% for n=2:21                  % loop to 21 if you want 500 scans, 81 if you want 2000 scans (where it exists)
+% Ux = Ux+ ordfilt2( flowAll{n}.Vx, 6, true(3));     % collect all the Ux 
+% Uy = Uy+ ordfilt2( flowAll{n}.Vy, 6, true(3));
+% end
 
 
 
+%if you want to remove drift
+Ux= Ux - mean(Ux(:)); % global drift removal in x
+Uy= Uy - mean(Uy(:)); % global drift removal in y
+% you may want to consider local drift remove vs global
 
-% Ux= mean(allrect100u ,3) - mean(allrect100u(:));
-% Uy= mean(allrect100v ,3) - mean(allrect100v(:));
+%you may want to smooth or resize the images
+scale = 0.05;
+Ux = imresize( imgaussfilt(  Ux, 5/scale), scale,'bicubic');
+Uy = imresize( imgaussfilt(  Uy, 5/scale), scale,'bicubic');
 
-%Ux = imresize( imgaussfilt(  Ux, 1/scale), scale,'bicubic');
-%Uy = imresize( imgaussfilt(  Uy, 1/scale), scale,'bicubic');
-
-
-
+% if the image has been scaled down, we need to account for that. If not, h needs to be 1 or else code will error 
+try
 h = 1/scale;
+catch 
+    h=1;
+end
 
+
+%if you want to visualize Ux and Uy at this stage before moving forward
 figure
-x = [1:h:size(allcircleu,1)] + round(h/2); %set up the grid for where the arrows go
-y = [1:h:size(allcircleu,2)] + round(h/2);
-% x = [1:h:size(allrect100u,1)] + round(h/2); %set up the grid for where the arrows go
-% y = [1:h:size(allrect100u,2)] + round(h/2);
-q =quiver(x,y,Ux,Uy,1); %draw arrows, arrows are exact length and not scaled by any factors if scale=0[var5]. otherwise they are scaled.
+x = ((1:size(Ux,1)) + round(1/2))*h; %set up the grid for where the arrows go
+y = ((1:size(Ux,2)) + round(1/2))*h;
+q =quiver(x,y,Ux,Uy,0); %draw arrows, arrows are exact length and not scaled by any factors if scale=0[var5]. otherwise they are scaled.
 q.Color = 'black';
 set(gca,'Ydir','reverse')
 axis equal
 axis off
 set(gca,'color','none')
+figure
+imagesc( sqrt(Ux.^2 + Uy.^2) /7.5758)
+colorbar
 
 
+%% Calculating displacement gradient tensor
+clear estrain wrotation Vs Ds  % clearning these variable helps to avoid errors due to changes in scaling between runs
 
-
-
-
-
-
-
-[Uxx,Uxy] = gradient(Ux,h,h);
+[Uxx,Uxy] = gradient(Ux,h,h); % and we are done!
 [Uyx,Uyy] = gradient(Uy,h,h);
 
+% We may want to rearrange H so that we can call the nummbers easier
 for i=1:size(Ux,1)
     for j=1:size(Ux,2)
-        Fdisplacementgradient =  [Uxx(i,j) Uxy(i,j); Uyx(i,j) Uyy(i,j)] ;
-        [V,D] = eig((Fdisplacementgradient + Fdisplacementgradient')./2);
-        estrain(i,j,:,:) = (Fdisplacementgradient + Fdisplacementgradient')./2 ;
-        wrotation(i,j,:,:)  =(Fdisplacementgradient - Fdisplacementgradient')./2  ; 
-        Vs(i,j,:,:) = V; % I think its y and then x...
-        Ds(i,j,:,:) = D;
+        Hdisplacementgradient(i,j,:,:) =  [Uxx(i,j) Uxy(i,j); Uyx(i,j) Uyy(i,j)];
     end
 end
 
+% if we want engineering strain for small deformations
+for i=1:size(Ux,1)
+    for j=1:size(Ux,2)
+        estrain(i,j,:,:) = (squeeze(Hdisplacementgradient(i,j,:,:)) + squeeze(Hdisplacementgradient(i,j,:,:))')./2 ;      % strain
+        wrotation(i,j,:,:)  =(squeeze(Hdisplacementgradient(i,j,:,:)) - squeeze(Hdisplacementgradient(i,j,:,:))')./2  ;   % rotation
+        [V,D] = eig(squeeze(estrain(i,j,:,:)));                                      % V are the eigenvectors and D are the eigenvalues
+        Vs(i,j,:,:) = V;                                                    % I think its [x1,x2;y1,y2] (i think)
+        Ds(i,j,:,:) = D;
+    end
+end        
+
+%if you want Cauchy-Green
+for i=1:size(Ux,1)
+    for j=1:size(Ux,2)
+        F = squeeze(Hdisplacementgradient(i,j,:,:)) + eye(2);
+        estrain(i,j,:,:) = F'*F ;      % Cauchy-Green strain tensor
+    end
+end      
+
+
+%% We actually need to go about finding the change in anisotropy due to the displacement (with affine displacement assumption)
+% can we directly find the change in anisotropy without going to strain and
+% is that faster/better or not?
+% can we just insert text vectors and ask how they are transformed based on
+% matrix F?
+for i=1:size(Ux,1)
+    for j=1:size(Ux,2)
+        F = Hdisplacementgradient(i,j,:,:) + eye(2);
+        alignmentdistribution = [0.1:0.1:360];
+        testvectors = [sind(alignmentdistribution) ; cosd(alignmentdistribution)];
+    end
+end    
+
+
+
+%Using engineering strain (code is probably correct but need more testing)
+alignmentdistributions = [];
+for i=1:size(Vs,1)
+    for j=1:size(Vs,2)
+        alignmentdistribution = [0.1:0.1:360];
+        alignmentdistribution = atand(   (sind(alignmentdistribution)*(1+Ds(i,j,1,1)) )  ./   (cosd(alignmentdistribution)*(1+Ds(i,j,2,2)) )); 
+        alignmentdistribution = alignmentdistribution + atand(Vs(i,j,1,1)/Vs(i,j,2,1));
+        alignmentdistribution(alignmentdistribution<-90) = alignmentdistribution(alignmentdistribution<-90) + 180;
+        alignmentdistribution(alignmentdistribution>90) = alignmentdistribution(alignmentdistribution>90) - 180;
+        alignmentdistributions(i,j,:) = alignmentdistribution;
+    end
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+%% old code from here down
 
 figure
 %quiver(squeeze(estrain(:,:,1,1)),squeeze((estrain(:,:,2,2)))) ;
@@ -144,18 +218,7 @@ colorbar
 % figure 
 % quiver(Vs(3:end-2,3:end-2,1,2).*Ds(3:end-2,3:end-2,1,1)+ Vs(3:end-2,3:end-2,1,2).*Ds(3:end-2,3:end-2,2,2)   , Vs(3:end-2,3:end-2,2,2).*Ds(3:end-2,3:end-2,1,1)+ Vs(3:end-2,3:end-2,2,2).*Ds(3:end-2,3:end-2,2,2)  ,1)
 %%
-alignmentdistributions = [];
-for i=1:size(Vs,1)
-    for j=1:size(Vs,2)
-        alignmentdistribution = [0.1:0.1:360];
-        alignmentdistribution = atand(   (sind(alignmentdistribution)*(1+Ds(i,j,1,1)) )  ./   (cosd(alignmentdistribution)*(1+Ds(i,j,2,2)) ));
-        %alignmentdistribution = atand(   (sind(alignmentdistribution)*(1-0.1 ))  ./   (cosd(alignmentdistribution)*(1+0 ) ) );
-        alignmentdistribution = alignmentdistribution + atand(Vs(i,j,1,1)/Vs(i,j,2,1));
-        alignmentdistribution(alignmentdistribution<-90) = alignmentdistribution(alignmentdistribution<-90) + 180;
-        alignmentdistribution(alignmentdistribution>90) = alignmentdistribution(alignmentdistribution>90) - 180;
-        alignmentdistributions(i,j,:) = alignmentdistribution;
-    end
-end
+
 
 %% first attempt at visualization
 
@@ -177,10 +240,10 @@ subplot(2,2,4)
 histogram(temp1(:) )
 
 
-temp1 = alignmentdistributions([3:9,25:31,],5:25,:);
+temp1 = alignmentdistributions([3:9,25:31],5:25,:);
 figure
 subplot(2,2,1)
 histogram(temp1(:) )
-temp1 = alignmentdistributions([11:21], 5:25,:);
+temp1 = alignmentdistributions(11:21, 5:25,:);
 subplot(2,2,2)
 histogram( temp1(:))
