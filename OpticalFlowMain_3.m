@@ -51,9 +51,9 @@ flowAll2 = flowAll;
 load('circle3.tif.mat')
 flowAll3 = flowAll;
 %%
-averagecircleu = (flowAll1{1}.Vx+ flowAll2{1}.Vx+flowAll3{1}.Vx);    
-averagecirclev = (flowAll1{1}.Vy+ flowAll2{1}.Vy+flowAll3{1}.Vy);
-for n=2:21
+averagecircleu = (flowAll1{2}.Vx+ flowAll2{2}.Vx+flowAll3{2}.Vx);    
+averagecirclev = (flowAll1{2}.Vy+ flowAll2{2}.Vy+flowAll3{2}.Vy);
+for n=3:21
 averagecircleu = averagecircleu+ (flowAll1{n}.Vx+ flowAll2{n}.Vx+flowAll3{n}.Vx);    
 averagecirclev = averagecirclev+ (flowAll1{n}.Vy+ flowAll2{n}.Vy+flowAll3{n}.Vy);
 end
@@ -855,3 +855,51 @@ xlim([0 211.2])
     
 end
 
+
+
+
+%% merlin figures 
+
+%load
+
+averagecircleu = (flowAll{2}.Vx);    
+averagecirclev = (flowAll{2}.Vy);
+for n=3:21
+averagecircleu = averagecircleu+ (flowAll{n}.Vx);    
+averagecirclev = averagecirclev+ (flowAll{n}.Vy);
+end
+% averagecircleu = averagecircleu(1:1600,1:1600);
+% averagecirclev = averagecirclev(1:1600,1:1600);
+% 
+figure
+% rectangle('Position',[1,1,1600,1600],'FaceColor',darkgreencolor,'EdgeColor',darkgreencolor,'LineWidth',3) % choose background color here
+% hold on
+% rectangle('Position',[600,600,400,400],'FaceColor',lightgreencolor,'EdgeColor',lightgreencolor,'Curvature',[1 1])  % choose circle color here
+scaling = 80;
+blocksize = 80;
+%scaling = 32;
+%blocksize = 32;
+
+xtemp = [1:scaling:size(averagecircleu,1)] + round(scaling/2); %set up the grid for where the arrows go
+ytemp = [1:scaling:size(averagecirclev,2)] + round(scaling/2);
+
+y = repmat(xtemp',[1 length(ytemp)]);
+x = repmat(ytemp,[ length(xtemp) 1]);
+
+uoffset = mean(mean(averagecircleu));
+voffset = mean(mean(averagecirclev));
+ u3= imresize(imgaussfilt(averagecircleu-uoffset,blocksize),1/scaling ,'bicubic'); % remove drift
+ v3= imresize(imgaussfilt(averagecirclev-voffset,blocksize),1/scaling ,'bicubic');  %remove drift
+ 
+q =quiver(x,y,u3.*1,v3.*1,0); %draw arrows, arrows are exact length and not scaled by any factors if scale=0[var5]. otherwise they are scaled.
+%q =quiver(x,y,u3,v3,0); %draw arrows, arrows are exact length and not scaled by any factors if scale=0[var5]. otherwise they are scaled.
+%q.Color = 'white';
+q.Color = 'black';
+
+% final adjustments made to the plot
+set(gca,'Ydir','reverse')
+axis equal
+axis off
+%title(['displacement vectors - all circles'])
+%set(gcf, 'Position', get(0, 'Screensize'));
+set(gca,'color','none')
